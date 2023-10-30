@@ -1,0 +1,109 @@
+---
+title: "Dashboard Code Template"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: columns
+    vertical_layout: fill
+---
+
+```{r setup, include=FALSE}
+library(flexdashboard)
+library(highcharter)
+library(gt)
+library(htmltools)
+library(viridis)
+library(tidyverse)
+```
+
+```{r}
+data <- read.csv("/Users/shiyun/Desktop/EDAV/universal_top_spotify_songs.csv")
+# Remove rows with empty cells
+data <- data[-which(data$country == ""), ]
+data <- data[-which(data$name == ""), ]
+
+# Group countries into different Continents
+data <- data |>
+  mutate(country = if_else(country %in% c("AE", "HK", "ID", "IL", "IN", "JP", 
+                                          "KR", "KZ", "MY", "PH", "PK", "SG",
+                                          "TH", "TW", "VN"),
+                           "Asia", country)) |>
+  mutate(country = if_else(country %in% c("AR", "BO", "BR", "CL", "CO", "EC",
+                                          "PE", "PY", "SV", "UY", "VE"), 
+                            "South America", country)) |>
+  mutate(country = if_else(country %in% c("AT", "BE", "BG", "BY", "CH", "CZ",
+                                          "DE", "DK", "EE", "ES", "FI", "FR",
+                                          "GB", "GR", "HU", "IE", "IS", "IT",
+                                          "LT", "LU", "LV", "NL", "NO", "PL",
+                                          "PT", "RO", "SE", "SK", "TR", "UA"), 
+                            "Europe", country)) |>
+  mutate(country = if_else(country %in% c("AU", "NZ"), 
+                            "Oceania", country)) |>
+  mutate(country = if_else(country %in% c("CA", "CR", "DO", "GT", "HN", "MX", 
+                                          "NI", "PA", "US"), 
+                            "North America", country)) |>
+  mutate(country = if_else(country %in% c("EG", "CR", "DO", "MA", "NG", "SA",
+                                          "ZA"), 
+                            "Africa", country))
+```
+
+Column {.tabset .tabset-fade data-width=650}
+-----------------------------------------------------------------------
+
+### Top Spotify Songs in 73 Countries
+```{r}
+custom_colors <- viridis::mako(n=15)
+data |>
+    group_by(artists) |>
+    summarise(Popularity = sum(popularity)) |>
+    arrange(desc(Popularity)) |>
+    head(15) |>
+    hchart('bar',hcaes(x = artists, y=Popularity, color = custom_colors)) |> 
+    hc_add_theme(hc_theme_google()) |>
+    hc_tooltip(pointFormat = '<b>Total Popularity: </b> {point.y} <br>') |>
+    hc_title(text = 'Top 15 Artists by Popularity', 
+             style = list(fontSize = '25px', fontWeight = 'bold')) |>
+    hc_subtitle(text = 'By Total Popularity',
+                style = list(fontSize = '16px')) 
+```
+
+Column {data-width=350}
+-----------------------------------------------------------------------
+
+### {.no-padding}
+
+```{r}
+custom_colors <- viridis::mako(n=6)
+# Most common Region
+data |>
+  group_by(country) |>
+  summarise(count = n()) |>
+  hchart('pie', hcaes(x = country, y = count, color = custom_colors)) |>
+  hc_add_theme(hc_theme_google()) |>
+  hc_tooltip(pointFormat = '<b>Proportion: </b> {point.percentage:,.2f}%') |>
+  hc_title(text = 'Most Common Region',
+           style = list(fontSize = '15px', fontWeight = 'bold'))
+```
+
+### {.no-padding}
+```{r}
+df1 <- data |>
+    group_by(name, artists) |>
+    summarise(Popularity = sum(popularity),.groups = "drop") |>
+    arrange(desc(Popularity)) |>
+    select(name, artists) |>
+    head(100)
+
+div(style = 'height:600px; overflow-y:scroll', gt(df1) |>
+      tab_header(title = md('Top 100 Famous Song'),
+                 subtitle = md('By Total Popularity')) |>
+      opt_table_font(font = list(google_font('Chivo'), default_fonts())) |>
+      tab_style(location = cells_column_labels(columns = everything()),
+                style = list(cell_borders(sides = 'bottom',
+                                          weight = px(2)),
+                             cell_text(weight = 'bold'))) |>
+      tab_options(table.font.size = px(12L),
+                  table.border.top.style = 'none',
+                  column_labels.border.bottom.width = 2,
+                  table_body.border.top.style = 'none',
+                  data_row.padding = px(3)))
+```
